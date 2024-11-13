@@ -1,33 +1,41 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
+// import { useState } from 'react'
 import './App.css'
 
+import { db } from "./firebase/firebase";
+import { getDoc, collection, doc } from 'firebase/firestore';
+
+import InputList from './components/InputList'
+import AddInput from './components/AddInput'
+import { useEffect, useMemo, useState } from 'react';
+
 function App() {
-  const [count, setCount] = useState(0)
+  const [inputsList, setInputsList] = useState([])
+  
+  const inputs: string[] = ["Cow", "milk", "noodle", "left", "right"]
+
+  // const inputDataCollectionRef = collection(db, "input_data")
+  const inpuDocRef = doc(db, "input", "1")
+  
+  useMemo (() => {
+    const getInputs = async () => {
+      
+      try {
+        const firstDoc = await getDoc(inpuDocRef)
+
+        console.log("DOCUMENT:", firstDoc) 
+      } catch (err) {
+        console.log("ERROR:", err)
+      }
+    } 
+
+    getInputs()
+  }, [])
+
 
   return (
     <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
+      <AddInput/>
+      <InputList items={inputs}/>
     </>
   )
 }
