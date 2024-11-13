@@ -22,5 +22,9 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
+<<<<<<< HEAD
 # authentication
+=======
+# keys
+>>>>>>> 1dd9296e1862bea852587100f5416575b17074d0
 .env

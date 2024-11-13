@@ -1,5 +1,9 @@
 {
+<<<<<<< HEAD
   "name": "school-sage",
+=======
+  "name": "edu-app",
+>>>>>>> 1dd9296e1862bea852587100f5416575b17074d0
   "version": "0.1.0",
   "private": true,
   "dependencies": {
@@ -10,7 +14,10 @@
     "@types/node": "^16.18.119",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
+<<<<<<< HEAD
     "firebase": "^11.0.1",
+=======
+>>>>>>> 1dd9296e1862bea852587100f5416575b17074d0
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-scripts": "5.0.1",
