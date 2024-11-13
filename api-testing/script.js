@@ -1,228 +1,96 @@
-// Initialize window.ai if not exists
-if (!window.ai) {
-    window.ai = {};
-}
+/**
+ * Copyright 2024 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
-// Constants for prompt templates
-const PROMPT_TEMPLATES = {
-    summarize: {
-        instruction: "Provide a clear and concise summary in 2-3 sentences:",
-        template: (text) => `Summarize this text concisely: ${text}`
-    },
-    improve: {
-        instruction: "Improve writing while maintaining core meaning:",
-        template: (text) => `Enhance this text for clarity and professionalism: ${text}`
-    },
-    translate: {
-        instruction: "Translate to Spanish:",
-        template: (text) => `Translate to Spanish and provide pronunciation guide: ${text}`
-    },
-    explain: {
-        instruction: "Explain in simple terms:",
-        template: (text) => `Explain this concept in simple, easy-to-understand terms with an example: ${text}`
-    },
-    analyze: {
-        instruction: "Analyze text and provide insights:",
-        template: (text) => `Analyze this text and provide key points, tone, and suggestions: ${text}`
+const form = document.querySelector('form');
+const input = document.querySelector('input');
+const output = document.querySelector('output');
+const pre = document.querySelector('pre');
+
+const getPrompt = (word) =>
+  `Suggest a list of unique synonyms for the word "${word}".`;
+
+(async () => {
+  const isAvailable = (await self.ai?.languageModel?.capabilities?.())?.available;
+  if (!isAvailable || isAvailable === 'no') {
+    document.querySelector('div').hidden = false;
+    return;
+  }
+  document.querySelector('main').hidden = false;
+
+  const languageModel = await self.ai.languageModel.create({
+    initialPrompts: [
+      {
+        role: 'system',
+        content: `You act as a thesaurus assistant that responds with synonyms of an input word.
+Only respond with the list of synonyms.
+Do not respond with further additional text before or after the list.
+Each synonym may only occur once in the list.`,
+      },
+      {
+        role: 'user',
+        content: 'Suggest a list of unique synonyms for the word "funny".',
+      },
+      {
+        role: 'assistant',
+        content: `- amusing
+- humorous
+- comic
+- comical
+- droll
+- laughable
+- chucklesome
+- hilarious
+- hysterical
+- riotous
+- uproarious
+- witty
+- quick-witted
+- waggish
+- facetious
+- jolly
+- jocular
+- lighthearted
+- entertaining
+- diverting
+`,
+      },
+    ],
+  });
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const word = input.value.trim().split(/\s+/)[0].replace(/[^a-zA-Z\n]/g, '');
+    if (!word) {
+      return;
     }
-};
-
-// Test AI API functionality
-async function testAIAPI() {
+    const prompt = getPrompt(word);
     try {
-        // Check if chrome.aiOriginTrial exists
-        if (!chrome?.aiOriginTrial?.languageModel) {
-            console.log('Chrome AI API not available');
-            return false;
-        }
-
-        // Check capabilities
-        const capabilities = await chrome.aiOriginTrial.languageModel.capabilities();
-        console.log('AI Capabilities:', capabilities);
-
-        if (capabilities.available === 'readily') {
-            const session = await chrome.aiOriginTrial.languageModel.create();
-            const response = await session.prompt('Hello, are you working?');
-            console.log('AI Response:', response);
-            return true;
-        } else {
-            console.log('AI not ready:', capabilities.available);
-            return false;
-        }
+      const assistantClone = await languageModel.clone();
+      const stream = assistantClone.promptStreaming(prompt);
+      output.innerHTML = '';
+      pre.innerHTML = '';
+      const doc = document.implementation.createHTMLDocument();
+      doc.write(
+        `<div>Here's a list of synonyms for the word <span>${word}</span>:<ul><li>`
+      );
+      output.append(doc.body.firstChild);
+      let previousLength = 0;
+      for await (const chunk of stream) {
+        pre.insertAdjacentText('beforeEnd', chunk.slice(previousLength));
+        const newContent = chunk
+          .slice(previousLength)
+          .replace(/^\s*[\-\*]\s*/, '')
+          .replace(/[^a-zA-Z\n]/g, '')
+          .replace('\n', '<li>');
+        previousLength = chunk.length;
+        doc.write(newContent);
+      }
+      doc.write('</ul></div>');
     } catch (error) {
-        console.error('AI Test Failed:', error);
-        return false;
+      console.log(error.name, error.message);
+      output.innerHTML = `<pre>${error.name}: ${error.message}</pre>`;
     }
-}
-
-// Check for AI support
-async function checkAISupport() {
-    try {
-        // Check if chrome.aiOriginTrial exists
-        if (!chrome?.aiOriginTrial?.languageModel) {
-            console.log('Chrome AI API not available');
-            return false;
-        }
-
-        // Check capabilities
-        const capabilities = await chrome.aiOriginTrial.languageModel.capabilities();
-        console.log('AI Capabilities:', capabilities);
-
-        return capabilities.available === 'readily';
-    } catch (error) {
-        console.error('AI Support Check Failed:', error);
-        return false;
-    }
-}
-
-// Process text with AI
-async function processWithAI(prompt) {
-    let retries = 3;
-    while (retries > 0) {
-        try {
-            const capabilities = await chrome.aiOriginTrial.languageModel.capabilities();
-            if (capabilities.available !== 'readily') {
-                throw new Error('AI not ready');
-            }
-
-            const session = await chrome.aiOriginTrial.languageModel.create();
-            console.log('Processing prompt:', prompt);
-            const response = await session.prompt(prompt);
-            console.log('AI Response:', response);
-            return response;
-        } catch (error) {
-            console.error(`Attempt ${4-retries} failed:`, error);
-            retries--;
-            if (retries === 0) throw error;
-            await new Promise(resolve => setTimeout(resolve, 1000));
-        }
-    }
-}
-
-// Generate appropriate prompt based on action
-function generatePrompt(action, text) {
-    const promptTemplate = PROMPT_TEMPLATES[action];
-    if (!promptTemplate) {
-        return text;
-    }
-    return promptTemplate.template(text);
-}
-
-// Status update function
-function updateStatus(isSupported) {
-    const statusContainer = document.getElementById('status-container');
-    if (!statusContainer) {
-        console.error('Status container not found');
-        return;
-    }
-
-    const statusClass = isSupported ? 'success' : 'error';
-    const statusText = isSupported ? 
-        'AI System Ready' : 
-        'AI System Not Available';
-    
-    statusContainer.innerHTML = `
-        <div class="status-badge ${statusClass}">
-            ${statusText}
-        </div>
-    `;
-}
-
-// Main click handler
-document.getElementById('process-btn').addEventListener('click', async () => {
-    const input = document.getElementById('input');
-    const action = document.getElementById('action');
-    const output = document.getElementById('output');
-
-    // Input validation
-    if (!input.value.trim()) {
-        output.innerHTML = `
-            <div class="error">
-                Please enter some text to process
-            </div>
-        `;
-        return;
-    }
-
-    // Show loading state
-    output.innerHTML = `
-        <p class="loading">
-            Processing your request... Please wait...
-        </p>
-    `;
-
-    try {
-        const isSupported = await checkAISupport();
-        if (!isSupported) {
-            throw new Error('Chrome AI features not available');
-        }
-
-        const prompt = generatePrompt(action.value, input.value);
-        console.log('Generated Prompt:', prompt);
-        const result = await processWithAI(prompt);
-
-        // Format and display result
-        output.innerHTML = `
-            <div class="result-container">
-                <h3 class="result-header">
-                    ${action.options[action.selectedIndex].text} Result:
-                </h3>
-                <div class="instruction">
-                    ${PROMPT_TEMPLATES[action.value].instruction}
-                </div>
-                <div class="result-content">
-                    ${result}
-                </div>
-            </div>
-        `;
-
-    } catch (error) {
-        output.innerHTML = `
-            <div class="error">
-                <strong>Error:</strong> ${error.message}
-                <br><br>
-                To use this application:
-                <ul>
-                    <li>Use Chrome Canary (version 127+)</li>
-                    <li>Enable these flags:
-                        <ul>
-                            <li>chrome://flags/#prompt-api-for-gemini-nano</li>
-                            <li>chrome://flags/#optimization-guide-on-device-model</li>
-                        </ul>
-                    </li>
-                    <li>Restart your browser</li>
-                </ul>
-            </div>
-        `;
-        console.error('Processing Error:', error);
-    }
-});
-
-// Initialize on page load
-window.addEventListener('load', async () => {
-    try {
-        console.log('Checking AI availability...');
-        const processBtn = document.getElementById('process-btn');
-        
-        // Test API functionality
-        const apiTest = await testAIAPI();
-        console.log('API Test Result:', apiTest);
-        
-        const isSupported = await checkAISupport();
-        console.log('AI Support Check Result:', isSupported);
-        
-        updateStatus(isSupported);
-        
-        if (!isSupported) {
-            if (processBtn) {
-                processBtn.disabled = true;
-                processBtn.textContent = 'AI Not Available';
-            }
-            console.log('AI features disabled');
-        } else {
-            console.log('AI System Ready');
-        }
-    } catch (error) {
-        console.error('Initialization error:', error);
-    }
-});
+  });
+})();
